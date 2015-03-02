@@ -1,0 +1,53 @@
+---
+title: "HW3"
+output: html_document
+---
+##Load relevant packages
+```{r}
+library(GEOquery)
+library(limma)
+library(pheatmap)
+library(lumi)
+```
+
+##Get data from GEO
+```{r}
+gds <- getGEO("GSE40812",destdir=".")
+```
+
+##CLeaning data
+Keeping necessary columns, only Macrophage data
+```{r}
+pd<-pData(gds)
+pd2 <- pd[pd$source_name_ch1=="Monocyte-derived Macrophage",]
+pd3<-pd2[c("title", "characteristics_ch1", "characteristics_ch1.1", "characteristics_ch1.2")]
+library(plyr)
+pd4<-rename(pd3, c("title"="ptid", "characteristics_ch1"="infection.status", "characteristics_ch1.1"="cell.type", "characteristics_ch1.2"="treatment"))
+pd4$infection.status <- gsub(".*: ", "", pd4$infection.status)
+pd4$cell.type <- gsub(".*: ", "", pd4$cell.type)
+pd4$treatment <- gsub(".*: ", "", pd4$treatment)
+pd4$ptid <- sapply(strsplit(as.character(pd4$ptid),"_"), function(x) x[[2]])
+pdeset<-gds[,rownames(pd4)]
+```
+
+##Normalize the data
+Already normalized, but otherwise could use
+```{r}
+#pd4 <- lumiN(pd4)
+```
+
+##Use limma to test for differential expression
+Only include FDR cutoff 0.05 and 1.5 fold change at least
+```{r}
+mm <- model.matrix(~treatment,pd4)
+fit <- lmFit(pdeset, mm)
+eb <- eBayes(fit)
+tt1<- topTable(eb, coef="treatmentPoly Ic H", number=Inf)
+tt2<- tt1[tt1$adj.P.Val < 0.05 & abs(tt1$logFC)>log2(1.5), ]
+tt3<-pdeset[[1]][tt2,]
+```
+
+##Create heatmap
+```{r}
+heatmap(exprs(tt3))
+```
