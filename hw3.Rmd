@@ -18,7 +18,7 @@ gds <- getGEO("GSE40812",destdir=".")
 ##CLeaning data
 Keeping necessary columns, only Macrophage data
 ```{r}
-pd<-pData(gds)
+pd<-pData(gds[[1]])
 pd2 <- pd[pd$source_name_ch1=="Monocyte-derived Macrophage",]
 pd3<-pd2[c("title", "characteristics_ch1", "characteristics_ch1.1", "characteristics_ch1.2")]
 library(plyr)
@@ -27,7 +27,7 @@ pd4$infection.status <- gsub(".*: ", "", pd4$infection.status)
 pd4$cell.type <- gsub(".*: ", "", pd4$cell.type)
 pd4$treatment <- gsub(".*: ", "", pd4$treatment)
 pd4$ptid <- sapply(strsplit(as.character(pd4$ptid),"_"), function(x) x[[2]])
-pdeset<-gds[,rownames(pd4)]
+pdeset<-gds[, rownames(pd4)]
 ```
 
 ##Normalize the data
@@ -39,15 +39,26 @@ Already normalized, but otherwise could use
 ##Use limma to test for differential expression
 Only include FDR cutoff 0.05 and 1.5 fold change at least
 ```{r}
-mm <- model.matrix(~treatment,pd4)
+mm <- model.matrix(~treatment,pdeset)
 fit <- lmFit(pdeset, mm)
 eb <- eBayes(fit)
-tt1<- topTable(eb, coef="treatmentPoly Ic H", number=Inf)
+tt1<- topTable(eb, coef="treatmentPoly Ic H", number=Inf, sort.by="none")
 tt2<- tt1[tt1$adj.P.Val < 0.05 & abs(tt1$logFC)>log2(1.5), ]
-tt3<-pdeset[[1]][tt2,]
 ```
 
-##Create heatmap
+##Expression based on HCV infection status
 ```{r}
-heatmap(exprs(tt3))
+mm2<-model.matrix(~0+infection.status, tt2)
+fit2<-lmFit(tt2,mm1)
+eb2<-eBayes(fit2)
+tt3<-topTable(eb2, coef="statusPos", number=Inf, sort.by="none")
+tt4<-tt2[tt3$P.Value<0.1]
+```
+
+##Order data and create heatmap
+```{r}
+tabl<-pData(tt4)
+tabsort<-tabl[order(tabl$treatment, tabl$infection.status, tabl$ptid), ]
+colnames(tabsort)<-tabl$ptid
+heatmap(exprs(tabsort))
 ```
