@@ -20,7 +20,7 @@ Keeping necessary columns, only Macrophage data
 ```{r}
 pd<-pData(gds[[1]])
 pd2 <- pd[pd$source_name_ch1=="Monocyte-derived Macrophage",]
-pd3<-pd2[c("title", "characteristics_ch1", "characteristics_ch1.1", "characteristics_ch1.2")]
+pd3<-pd2[c("title", "geo_accession", "characteristics_ch1", "characteristics_ch1.1", "characteristics_ch1.2")]
 library(plyr)
 pd4<-rename(pd3, c("title"="ptid", "characteristics_ch1"="infection.status", "characteristics_ch1.1"="cell.type", "characteristics_ch1.2"="treatment"))
 pd4$infection.status <- gsub(".*: ", "", pd4$infection.status)
@@ -39,17 +39,18 @@ Already normalized, but otherwise could use
 ##Use limma to test for differential expression
 Only include FDR cutoff 0.05 and 1.5 fold change at least
 ```{r}
-mm <- model.matrix(~treatment,pdeset)
+mm <- model.matrix(~treatment,pd4)
 fit <- lmFit(pdeset, mm)
 eb <- eBayes(fit)
-tt1<- topTable(eb, coef="treatmentPoly Ic H", number=Inf, sort.by="none")
+tt1<- topTable(eb, coef="treatmentPoly IC H", number=Inf, sort.by="none")
 tt2<- tt1[tt1$adj.P.Val < 0.05 & abs(tt1$logFC)>log2(1.5), ]
+#tt2 contains 1146 probes
 ```
 
 ##Expression based on HCV infection status
 ```{r}
-mm2<-model.matrix(~0+infection.status, tt2)
-fit2<-lmFit(tt2,mm1)
+mm2<-model.matrix(~infection.status, tt2)
+fit2<-lmFit(tt2,mm2)
 eb2<-eBayes(fit2)
 tt3<-topTable(eb2, coef="statusPos", number=Inf, sort.by="none")
 tt4<-tt2[tt3$P.Value<0.1]
